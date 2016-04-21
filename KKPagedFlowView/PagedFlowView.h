@@ -29,6 +29,7 @@ typedef enum{
 - (void)reloadData;
 - (UIView *)dequeueReusableCell; // 获取可重复使用的Cell
 - (void)scrollToPage:(NSUInteger)pageNumber;
+- (void)scrollToPage:(NSUInteger)pageNumber animated:(BOOL)animated;
 
 @end
 

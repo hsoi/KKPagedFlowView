@@ -32,7 +32,7 @@
     NSInteger tappedIndex = 0;
     CGPoint locationInScrollView = [gestureRecognizer locationInView:_scrollView];
     if (CGRectContainsPoint(_scrollView.bounds, locationInScrollView)) {
-        tappedIndex = _currentPageIndex;
+        tappedIndex = self.currentPageIndex;
         if ([self.delegate respondsToSelector:@selector(flowView:didTapPageAtIndex:)]) {
             [self.delegate flowView:self didTapPageAtIndex:tappedIndex];
         }
@@ -48,7 +48,7 @@
     _needsReload = YES;
     _pageSize = self.bounds.size;
     _pageCount = 0;
-    _currentPageIndex = 0;
+    self.currentPageIndex = 0;
     
     _minimumPageAlpha = 1.0;
     _minimumPageScale = 1.0;
@@ -399,20 +399,26 @@
     return cell;
 }
 
-- (void)scrollToPage:(NSUInteger)pageNumber {
+- (void)scrollToPage:(NSUInteger)pageNumber animated:(BOOL)animated {
     if (pageNumber < _pageCount) {
         switch (orientation) {
             case PagedFlowViewOrientationHorizontal:
-                [_scrollView setContentOffset:CGPointMake(_pageSize.width * pageNumber, 0) animated:YES];
+                [_scrollView setContentOffset:CGPointMake(_pageSize.width * pageNumber, 0) animated:animated];
                 break;
             case PagedFlowViewOrientationVertical:
-                [_scrollView setContentOffset:CGPointMake(0, _pageSize.height * pageNumber) animated:YES];
+                [_scrollView setContentOffset:CGPointMake(0, _pageSize.height * pageNumber) animated:animated];
                 break;
         }
         [self setPagesAtContentOffset:_scrollView.contentOffset];
         [self refreshVisibleCellAppearance];
     }
 }
+
+
+- (void)scrollToPage:(NSUInteger)pageNumber {
+    [self scrollToPage:pageNumber animated:YES];
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark -
@@ -441,34 +447,50 @@
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView{
     [self setPagesAtContentOffset:scrollView.contentOffset];
     [self refreshVisibleCellAppearance];
+    
+    [self updateCurrentPageIndex:scrollView];
 }
 
 
 - (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView{
     //如果有PageControl，计算出当前页码，并对pageControl进行更新
     
-    NSInteger pageIndex;
+    [self updateCurrentPageIndex:scrollView];
+    
+    if (self.pageControl && [self.pageControl respondsToSelector:@selector(setCurrentPage:)]) {
+        [self.pageControl setCurrentPage:self.currentPageIndex];
+    }
+    
+    if ([_delegate respondsToSelector:@selector(flowView:didScrollToPageAtIndex:)]) {
+        [_delegate flowView:self didScrollToPageAtIndex:self.currentPageIndex];
+    }
+    
+}
+
+
+- (void)updateCurrentPageIndex:(UIScrollView*)scrollView {
+    NSInteger pageIndex = 0;
     
     switch (orientation) {
-        case PagedFlowViewOrientationHorizontal:
-            pageIndex = floor(MAX(_scrollView.contentOffset.x, 0) / _pageSize.width);
+        case PagedFlowViewOrientationHorizontal: {
+            CGFloat pageWidth = _pageSize.width;
+            pageIndex = floor((_scrollView.contentOffset.x - pageWidth / 2) / pageWidth) + 1;
             break;
-        case PagedFlowViewOrientationVertical:
-            pageIndex = floor(MAX(_scrollView.contentOffset.y, 0) / _pageSize.height);
+        }
+            
+        case PagedFlowViewOrientationVertical: {
+            CGFloat pageHeight = _pageSize.height;
+            pageIndex = floor((_scrollView.contentOffset.y - pageHeight / 2) / pageHeight) + 1;
             break;
+        }
+            
         default:
             break;
     }
-    
-    if (self.pageControl && [self.pageControl respondsToSelector:@selector(setCurrentPage:)]) {
-        [self.pageControl setCurrentPage:pageIndex];
+
+    if (self.currentPageIndex != pageIndex) {
+        self.currentPageIndex = pageIndex;
     }
-    
-    if ([_delegate respondsToSelector:@selector(flowView:didScrollToPageAtIndex:)] && _currentPageIndex != pageIndex) {
-        [_delegate flowView:self didScrollToPageAtIndex:pageIndex];
-    }
-    
-    _currentPageIndex = pageIndex;
 }
 
 @end
